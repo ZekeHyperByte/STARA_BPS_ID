@@ -13,19 +13,20 @@ import '../app_theme.dart';
 
 const String kDisplayFont = 'PlusJakartaSans';
 
-/// Derive a 3-stop hero gradient from an accent color: a lighter lead, the
-/// accent itself, then a deepened tail. Keeps every group's hero on-brand.
-List<Color> heroGradient(Color accent) {
+/// Deepen + saturate an accent into a solid hero fill. Lightness is clamped
+/// dark enough that white type clears contrast on every brand color.
+Color heroFill(Color accent) {
   final hsl = HSLColor.fromColor(accent);
-  final light = hsl
-      .withLightness((hsl.lightness + 0.12).clamp(0.0, 1.0))
-      .withSaturation((hsl.saturation + 0.05).clamp(0.0, 1.0))
+  return hsl
+      .withLightness((hsl.lightness - 0.04).clamp(0.0, 0.46))
+      .withSaturation((hsl.saturation + 0.06).clamp(0.0, 1.0))
       .toColor();
-  final dark = hsl
-      .withLightness((hsl.lightness - 0.28).clamp(0.0, 1.0))
-      .toColor();
-  return [light, accent, dark];
 }
+
+/// Bake a lighter shade of [fill] by mixing in white — returns a SOLID color
+/// (no runtime transparency), so the hero never shows a translucent fade.
+Color heroShade(Color fill, double whiteAmount) =>
+    Color.alphaBlend(Colors.white.withOpacity(whiteAmount), fill);
 
 /// Quiet white container used for every non-hero section.
 class SectionPanel extends StatelessWidget {
@@ -218,160 +219,142 @@ class IndicatorHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = heroGradient(accent);
+    final fill = heroFill(accent);
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        isSmall ? 20 : 24,
-        isSmall ? 20 : 24,
-        isSmall ? 20 : 24,
-        isSmall ? 16 : 20,
-      ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: colors,
-          stops: const [0.0, 0.45, 1.0],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: accent.withOpacity(0.34),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
-        ],
+        // One solid, deepened brand color. No gradient, no wash, no glow.
+        color: fill,
+        borderRadius: BorderRadius.circular(18),
       ),
-      child: Stack(
-        clipBehavior: Clip.hardEdge,
-        children: [
-          Positioned(
-            right: -42,
-            top: -52,
-            child: Container(
-              width: 150,
-              height: 150,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.08),
-                  width: 24,
-                ),
-              ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: CustomPaint(
+          // Measurement-rule texture along the base — the masthead signature.
+          painter: _HeroRulerPainter(fill: fill),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              isSmall ? 20 : 24,
+              isSmall ? 18 : 22,
+              isSmall ? 20 : 24,
+              isSmall ? 22 : 28,
             ),
+            child: _content(fill),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      overline,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.78),
-                        fontSize: isSmall ? 10 : 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                  ),
-                  if (badge != null) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.16),
-                        borderRadius: BorderRadius.circular(40),
-                      ),
-                      child: Text(
-                        badge!,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              SizedBox(height: isSmall ? 12 : 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Flexible(
-                    child: Text(
-                      value,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: kDisplayFont,
-                        color: Colors.white,
-                        fontSize: isSmall ? 46 : 56,
-                        fontWeight: FontWeight.w800,
-                        height: 0.95,
-                        letterSpacing: -2,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ),
-                  if (delta != null) ...[
-                    const SizedBox(width: 12),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _DeltaChip(
-                          delta: delta!, unit: deltaUnit, isSmall: isSmall),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.72),
-                  fontSize: isSmall ? 11.5 : 12.5,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              if (sparkline != null && sparkline!.isNotEmpty) ...[
-                SizedBox(height: isSmall ? 14 : 18),
-                SizedBox(
-                  height: isSmall ? 44 : 52,
-                  child: MiniSparkline(values: sparkline!, accent: accent),
-                ),
-              ],
-              if (facts.isNotEmpty) ...[
-                SizedBox(height: isSmall ? 12 : 14),
-                Divider(color: Colors.white.withOpacity(0.16), height: 1),
-                SizedBox(height: isSmall ? 10 : 12),
-                Row(
-                  children: [
-                    for (int i = 0; i < facts.length; i++) ...[
-                      if (i > 0)
-                        Container(
-                          width: 1,
-                          height: 30,
-                          color: Colors.white.withOpacity(0.16),
-                        ),
-                      _heroFact(facts[i]),
-                    ],
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _heroFact(HeroFact fact) {
+  Widget _content(Color fill) {
+    // All non-white tones are baked to solid shades of the fill.
+    final faint = heroShade(fill, 0.22);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                overline.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: heroShade(fill, 0.82),
+                  fontSize: isSmall ? 10 : 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2,
+                ),
+              ),
+            ),
+            if (badge != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  badge!,
+                  style: TextStyle(
+                    color: fill,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        SizedBox(height: isSmall ? 14 : 18),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Flexible(
+              child: Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: kDisplayFont,
+                  color: Colors.white,
+                  fontSize: isSmall ? 48 : 58,
+                  fontWeight: FontWeight.w800,
+                  height: 0.92,
+                  letterSpacing: -2.2,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+            if (delta != null) ...[
+              const SizedBox(width: 12),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 9),
+                child: _DeltaChip(
+                    delta: delta!, unit: deltaUnit, isSmall: isSmall),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 7),
+        Text(
+          subtitle,
+          style: TextStyle(
+            color: heroShade(fill, 0.72),
+            fontSize: isSmall ? 11.5 : 12.5,
+            fontWeight: FontWeight.w500,
+            height: 1.3,
+          ),
+        ),
+        if (sparkline != null && sparkline!.isNotEmpty) ...[
+          SizedBox(height: isSmall ? 16 : 20),
+          SizedBox(
+            height: isSmall ? 44 : 52,
+            child: MiniSparkline(values: sparkline!, accent: fill),
+          ),
+        ],
+        if (facts.isNotEmpty) ...[
+          SizedBox(height: isSmall ? 16 : 20),
+          Container(height: 1, color: faint),
+          SizedBox(height: isSmall ? 12 : 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (int i = 0; i < facts.length; i++) ...[
+                if (i > 0) Container(width: 1, height: 28, color: faint),
+                _heroFact(fill, facts[i]),
+              ],
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _heroFact(Color fill, HeroFact fact) {
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -379,16 +362,17 @@ class IndicatorHero extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              fact.label,
+              fact.label.toUpperCase(),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
-                fontSize: isSmall ? 10.5 : 11.5,
-                fontWeight: FontWeight.w500,
+                color: heroShade(fill, 0.6),
+                fontSize: isSmall ? 9.5 : 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
               ),
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 5),
             Text(
               fact.value,
               maxLines: 1,
@@ -408,6 +392,47 @@ class IndicatorHero extends StatelessWidget {
   }
 }
 
+/// Measurement-rule scale pinned to the base of the solid hero field. Ticks
+/// are solid shades of the fill (no transparency); every fifth tick is taller
+/// and brighter. Gives the masthead a precision-instrument identity.
+class _HeroRulerPainter extends CustomPainter {
+  final Color fill;
+  const _HeroRulerPainter({required this.fill});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const step = 13.0;
+    final baseY = size.height - 1;
+
+    final base = Paint()
+      ..color = heroShade(fill, 0.2)
+      ..strokeWidth = 1;
+    canvas.drawLine(Offset(0, baseY), Offset(size.width, baseY), base);
+
+    final minor = Paint()
+      ..color = heroShade(fill, 0.26)
+      ..strokeWidth = 1;
+    final major = Paint()
+      ..color = heroShade(fill, 0.66)
+      ..strokeWidth = 1.4;
+
+    int i = 0;
+    for (double x = step; x < size.width; x += step) {
+      final isMajor = i % 5 == 4;
+      final h = isMajor ? 11.0 : 6.0;
+      canvas.drawLine(
+        Offset(x, baseY - h),
+        Offset(x, baseY),
+        isMajor ? major : minor,
+      );
+      i++;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_HeroRulerPainter old) => old.fill != fill;
+}
+
 class _DeltaChip extends StatelessWidget {
   final double delta;
   final String unit;
@@ -419,14 +444,15 @@ class _DeltaChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final positive = delta >= 0;
-    final tint = positive ? const Color(0xFFB6E388) : const Color(0xFFFFB4A8);
+    final tint = positive ? bpsGreen : bpsRed;
     final fmt = delta.abs().toStringAsFixed(2).replaceAll('.', ',');
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
+        // Solid white chip on the colored field — colored text carries the
+        // up/down signal. No translucent tint.
+        color: Colors.white,
         borderRadius: BorderRadius.circular(40),
-        border: Border.all(color: tint.withOpacity(0.45), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -452,7 +478,7 @@ class _DeltaChip extends StatelessWidget {
   }
 }
 
-/// White line sparkline on a colored hero field. Dot only on the last point.
+/// Accent line sparkline on the paper hero field. Dot only on the last point.
 class MiniSparkline extends StatelessWidget {
   final List<double> values;
   final Color accent;
@@ -484,7 +510,7 @@ class MiniSparkline extends StatelessWidget {
             ],
             isCurved: true,
             color: Colors.white,
-            barWidth: 2.5,
+            barWidth: 3,
             isStrokeCapRound: true,
             dotData: FlDotData(
               show: true,
@@ -492,25 +518,17 @@ class MiniSparkline extends StatelessWidget {
                 if (index != lastIndex) {
                   return FlDotCirclePainter(radius: 0, color: Colors.white);
                 }
+                // White ring around the fill color — solid, no fade.
                 return FlDotCirclePainter(
-                  radius: 4,
-                  color: Colors.white,
+                  radius: 4.5,
+                  color: accent,
                   strokeWidth: 2.5,
-                  strokeColor: accent,
+                  strokeColor: Colors.white,
                 );
               },
             ),
-            belowBarData: BarAreaData(
-              show: true,
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white.withOpacity(0.28),
-                  Colors.white.withOpacity(0.0),
-                ],
-              ),
-            ),
+            // No area fill — the user asked for no semi-transparent gradients.
+            belowBarData: BarAreaData(show: false),
           ),
         ],
       ),
@@ -944,16 +962,9 @@ class CategoryHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: accent,
-        boxShadow: [
-          BoxShadow(
-            color: accent.withOpacity(0.2),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      // Same deepened fill as the hero — header + hero read as one solid
+      // masthead. Flat: no colored glow.
+      decoration: BoxDecoration(color: heroFill(accent)),
       child: SafeArea(
         bottom: false,
         child: Padding(

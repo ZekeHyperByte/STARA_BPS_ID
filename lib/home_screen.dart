@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'app_theme.dart';
+import 'widgets/section_kit.dart';
 import 'profile_screen.dart';
 import 'statistik_screen.dart';
 import 'ipm_screen.dart';
@@ -15,6 +16,7 @@ import 'categories_data.dart';
 import 'responsive_sizing.dart';
 import 'number_format_utils.dart';
 import 'home_snapshot_data.dart';
+import 'services/github_data_service.dart';
 
 export 'categories_data.dart';
 
@@ -42,6 +44,9 @@ class _HomeScreenState extends State<HomeScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Reload snapshot tiles when a background sync delivers fresh data so the
+    // home screen reflects newly-published stats within the same launch.
+    GitHubDataService.dataRevision.addListener(_reloadTiles);
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 850),
@@ -51,19 +56,24 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    GitHubDataService.dataRevision.removeListener(_reloadTiles);
     _animationController.dispose();
     super.dispose();
+  }
+
+  void _reloadTiles() {
+    _tile1Key.currentState?.reloadData();
+    _tile2Key.currentState?.reloadData();
+    _tile3Key.currentState?.reloadData();
+    _tile4Key.currentState?.reloadData();
+    _tile5Key.currentState?.reloadData();
+    _tile6Key.currentState?.reloadData();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _tile1Key.currentState?.reloadData();
-      _tile2Key.currentState?.reloadData();
-      _tile3Key.currentState?.reloadData();
-      _tile4Key.currentState?.reloadData();
-      _tile5Key.currentState?.reloadData();
-      _tile6Key.currentState?.reloadData();
+      _reloadTiles();
     }
   }
 
@@ -306,11 +316,7 @@ class _HomeBody extends StatelessWidget {
                   width: 4,
                   height: 20,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [bpsBlue, Color(0xFF1C6FA8)],
-                    ),
+                    color: bpsBlue,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -947,23 +953,9 @@ class _HeroCellWidgetState extends State<_HeroCellWidget>
         child: DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color.lerp(widget.color, Colors.white, 0.12)!,
-                widget.color,
-                Color.lerp(widget.color, Colors.black, 0.26)!,
-              ],
-              stops: const [0.0, 0.5, 1.0],
-            ),
+            // Solid deepened brand color — no gradient, no colored glow.
+            color: heroFill(widget.color),
             boxShadow: [
-              BoxShadow(
-                color: widget.color.withOpacity(0.36),
-                blurRadius: 24,
-                offset: const Offset(0, 12),
-                spreadRadius: -8,
-              ),
               BoxShadow(
                 color: Colors.black.withOpacity(0.12),
                 blurRadius: 6,
@@ -976,44 +968,11 @@ class _HeroCellWidgetState extends State<_HeroCellWidget>
             borderRadius: BorderRadius.circular(22),
             child: Stack(
               children: [
-                // Instrument dot-grid texture
+                // Instrument dot-grid texture — solid shade of the fill.
                 Positioned.fill(
                   child: CustomPaint(
                     painter: _DotGridPainter(
-                      color: Colors.white.withOpacity(0.06),
-                    ),
-                  ),
-                ),
-                // Lit-from-above sheen
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.center,
-                        colors: [
-                          Colors.white.withOpacity(0.14),
-                          Colors.white.withOpacity(0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                // Corner glow
-                Positioned(
-                  right: -30,
-                  top: -30,
-                  child: Container(
-                    width: 110,
-                    height: 110,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          Colors.white.withOpacity(0.18),
-                          Colors.white.withOpacity(0),
-                        ],
-                      ),
+                      color: heroShade(heroFill(widget.color), 0.08),
                     ),
                   ),
                 ),
@@ -1186,23 +1145,9 @@ class _BentoCellWidgetState extends State<_BentoCellWidget>
         child: DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color.lerp(widget.color, Colors.white, 0.10)!,
-                widget.color,
-                Color.lerp(widget.color, Colors.black, 0.24)!,
-              ],
-              stops: const [0.0, 0.5, 1.0],
-            ),
+            // Solid deepened brand color — no gradient, no colored glow.
+            color: heroFill(widget.color),
             boxShadow: [
-              BoxShadow(
-                color: widget.color.withOpacity(0.30),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-                spreadRadius: -6,
-              ),
               BoxShadow(
                 color: Colors.black.withOpacity(0.10),
                 blurRadius: 5,
@@ -1215,39 +1160,6 @@ class _BentoCellWidgetState extends State<_BentoCellWidget>
             borderRadius: BorderRadius.circular(20),
             child: Stack(
               children: [
-                // Lit-from-above sheen
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.center,
-                        colors: [
-                          Colors.white.withOpacity(0.12),
-                          Colors.white.withOpacity(0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                // Corner glow
-                Positioned(
-                  right: -20,
-                  top: -20,
-                  child: Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          Colors.white.withOpacity(0.16),
-                          Colors.white.withOpacity(0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
                 // Illustration watermark
                 if (widget.illustration != null)
                   _TileWatermark(
@@ -1357,61 +1269,37 @@ class _CTATile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Ghost slot: unfilled cell on the page background, hairline border. Among
+    // the filled color tiles the one open frame reads plainly as an action.
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
-        splashColor: bpsBlue.withOpacity(0.12),
-        highlightColor: bpsBlue.withOpacity(0.06),
+        splashColor: bpsBlue.withOpacity(0.08),
+        highlightColor: bpsBlue.withOpacity(0.04),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                bpsBlue.withOpacity(0.10),
-                bpsBlue.withOpacity(0.03),
-              ],
-            ),
+            color: Colors.transparent,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: bpsBlue.withOpacity(0.25),
-              width: 1.2,
-            ),
+            border: Border.all(color: bpsBorder, width: 1.4),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: bpsBlue,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: bpsBlue.withOpacity(0.35),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                      spreadRadius: -2,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.grid_view_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
+              Icon(
+                Icons.grid_view_rounded,
+                color: bpsBlue,
+                size: 24,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 9),
               Text(
                 '${HomeScreenCategories.allCategories.length} Kategori',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: sizing.bottomNavLabelSize,
                   fontWeight: FontWeight.w700,
-                  color: bpsBlue,
+                  color: bpsTextPrimary,
                 ),
               ),
               const SizedBox(height: 3),
@@ -1423,15 +1311,11 @@ class _CTATile extends StatelessWidget {
                     style: TextStyle(
                       fontSize: sizing.bottomNavLabelSize - 1,
                       fontWeight: FontWeight.w500,
-                      color: bpsBlue.withOpacity(0.8),
+                      color: bpsBlue,
                     ),
                   ),
                   const SizedBox(width: 2),
-                  Icon(
-                    Icons.arrow_forward_rounded,
-                    color: bpsBlue.withOpacity(0.8),
-                    size: 13,
-                  ),
+                  Icon(Icons.arrow_forward_rounded, color: bpsBlue, size: 13),
                 ],
               ),
             ],
@@ -1501,40 +1385,30 @@ class _ChangePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 5 : 6,
-        vertical: compact ? 2 : 3,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.18),
-        borderRadius: BorderRadius.circular(7),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isPositive
-                ? Icons.arrow_outward_rounded
-                : Icons.south_east_rounded,
-            color: Colors.white,
-            size: compact ? 11 : 13,
-          ),
-          const SizedBox(width: 3),
-          Flexible(
-            child: Text(
-              change,
-              style: TextStyle(
-                fontSize: compact ? 10 : 12,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-              overflow: TextOverflow.ellipsis,
+    // Borderless: white arrow + figure inline on the colored tile. Direction
+    // arrow carries the up/down signal — no chip, blends into the card.
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          isPositive ? Icons.arrow_outward_rounded : Icons.south_east_rounded,
+          color: Colors.white,
+          size: compact ? 12 : 14,
+        ),
+        const SizedBox(width: 3),
+        Flexible(
+          child: Text(
+            change,
+            style: TextStyle(
+              fontSize: compact ? 10.5 : 12.5,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
+            overflow: TextOverflow.ellipsis,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,6 +8,10 @@ class GitHubDataService {
   static const String _versionKey = 'github_cached_version';
   static const String _cachePrefix = 'github_cache_';
   static const String _lastSyncKey = 'github_last_sync';
+
+  /// Bumps whenever a background sync writes fresh data, so listening widgets
+  /// (e.g. home snapshot tiles) can reload without waiting for the next launch.
+  static final ValueNotifier<int> dataRevision = ValueNotifier<int>(0);
 
   static const List<String> categories = [
     'inflasi',
@@ -28,22 +33,25 @@ class GitHubDataService {
   static Future<void> init() async {
     if (_initialized) return;
     _prefs = await SharedPreferences.getInstance();
-    await _syncFromGitHub();
+    // Cache-first: make any previously-cached data available immediately so
+    // screens never block on the network at launch. The network sync below
+    // only upgrades the cache and is intentionally NOT awaited.
+    _loadAllFromLocalCache();
     _initialized = true;
+    // Fire-and-forget background refresh; notifies listeners on new data.
+    unawaited(_syncFromGitHub());
   }
 
   static Future<void> _syncFromGitHub() async {
     final remoteVersion = await GitHubDataRepository.fetchVersion();
     if (remoteVersion == null) {
       if (kDebugMode) debugPrint('GitHub unavailable, using cache');
-      _loadAllFromLocalCache();
       return;
     }
 
     final cachedVersion = _prefs?.getString(_versionKey) ?? '';
     if (remoteVersion == cachedVersion && _hasAllLocalCache()) {
       if (kDebugMode) debugPrint('Version unchanged ($remoteVersion), using cache');
-      _loadAllFromLocalCache();
       return;
     }
 
@@ -65,9 +73,9 @@ class GitHubDataService {
       await _prefs?.setString(
           _lastSyncKey, DateTime.now().toIso8601String());
       if (kDebugMode) debugPrint('Fetched $fetched/${categories.length} categories');
+      // Signal listeners that fresh data is in the cache.
+      dataRevision.value++;
     }
-
-    _loadAllFromLocalCache();
   }
 
   static bool _hasAllLocalCache() {
@@ -107,8 +115,9 @@ class GitHubDataService {
       await _prefs?.remove('$_cachePrefix$category');
     }
     await _prefs?.remove(_versionKey);
-    _initialized = false;
-    await init();
+    // Await the network sync here so callers (manual "refresh" actions) get
+    // fresh data before continuing, unlike the fire-and-forget launch path.
+    await _syncFromGitHub();
   }
 
   static DateTime? getLastSync() {
